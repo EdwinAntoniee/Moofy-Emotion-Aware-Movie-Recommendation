@@ -33,6 +33,10 @@
 
 ---
 
+> [!NOTE]
+> **Evolution from Cinema.io (Independent Initiative)**  
+> **Moofy** was developed as a direct continuation and architectural evolution of [**`Cinema.io`**](https://github.com/EdwinAntoniee/Cinema.io-Personalized-Movie-Recommendation), our team's earlier NLP movie recommendation project. Recognizing substantial room for improvement in the original concept—particularly regarding recommendation transparency, low-latency scalable vector retrieval, and full-stack personalization—this project is **entirely my own independent work** built from scratch to elevate that vision into a production-grade, end-to-end platform.
+
 ## 🎬 Overview
 
 **Moofy** is an intelligent, full-stack movie discovery platform designed around human emotion. Rather than relying solely on generic genre tags or static popularity algorithms, Moofy analyzes natural-language prompts expressing how a user is feeling (*"I had an exhausting week and need something comforting and warm"*) and translates that emotional nuance into resonant film recommendations.
@@ -103,6 +107,8 @@ $$\text{Score} = \alpha \cdot \text{SemanticSim}(\vec{u}, \vec{m}) + (1 - \alpha
 
 ## 👨‍💻 My Roles & Contributions
 
+- **Solo Initiative & Evolution from Cinema.io**
+  - Conceived, architected, and built this project independently as an advanced, production-grade evolution of our earlier team project ([`Cinema.io`](https://github.com/EdwinAntoniee/Cinema.io-Personalized-Movie-Recommendation)), identifying key areas for improvement in the original concept and elevating it with modern vector search, fine-tuned transformer inference, and a complete full-stack architecture.
 - **Machine Learning & NLP Engineering**
   - Fine-tuned a multi-class DistilBERT classifier on curated emotional dialogue and the GoEmotions corpus, outputting calibrated probability distributions across 6 canonical emotions.
   - Implemented semantic retrieval using Sentence-BERT (`all-MiniLM-L6-v2`) and ChromaDB vector indexing to generate dense 384-dimensional embeddings over the TMDB movie catalog.
