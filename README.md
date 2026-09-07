@@ -23,7 +23,7 @@
   <a href="#overview">Overview</a> •
   <a href="#key-features">Features</a> •
   <a href="#machine-learning-architecture">ML Architecture</a> •
-  <a href="#my-roles--contributions">Contributions</a> •
+  <a href="#key-engineering-learnings">Key Learnings</a> •
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#folder-structure">Folder Structure</a> •
   <a href="#quickstart--installation">Quickstart</a> •
@@ -50,12 +50,12 @@ The platform blends:
 
 ## ✨ Key Features
 
-* **🎭 Natural Language Emotion Detection**: Express sentiments freely in plain English. The fine-tuned transformer predicts the primary mood and probability breakdown across 6 core emotions.
-* **🎛️ Dynamic Recommendation Focus**: Real-time slider adjusting the synthesis between **Mood Focus** (emotional resonance) and **Plot Focus** (semantic plot alignment).
-* **🛡️ Content Safety & Quality Filtering**: Automatic filtering rejecting adult/erotic content and unvetted placeholder releases (enforcing minimum quality rating and vote thresholds).
-* **👤 Guest vs. Authenticated User Flows**:
-  * **Guest Mode**: Instant zero-friction emotion search and film exploration.
-  * **Authenticated Mode**: Automatically archived **History** timeline and personal **Watchlist & Queue** manager.
+- **Natural Language Emotion Detection**: Express sentiments freely in plain English. The fine-tuned transformer predicts the primary mood and probability breakdown across 6 core emotions.
+- **Dynamic Recommendation Focus**: Real-time slider adjusting the synthesis between **Mood Focus** (emotional resonance) and **Plot Focus** (semantic plot alignment).
+- **Content Safety & Quality Filtering**: Automatic filtering rejecting adult/erotic content and unvetted placeholder releases (enforcing minimum quality rating and vote thresholds).
+- **Guest vs. Authenticated User Flows**:
+  - **Guest Mode**: Instant zero-friction emotion search and film exploration.
+  - **Authenticated Mode**: Automatically archived **History** timeline and personal **Watchlist & Queue** manager.
 
 ---
 
@@ -105,24 +105,19 @@ $$\text{Score} = \alpha \cdot \text{SemanticSim}(\vec{u}, \vec{m}) + (1 - \alpha
 
 ---
 
-## 👨‍💻 My Roles & Contributions
+## 💡 Key Engineering Learnings
 
-- **Solo Initiative & Evolution from Cinema.io**
-  - Conceived, architected, and built this project independently as an advanced, production-grade evolution of our earlier team project ([`Cinema.io`](https://github.com/EdwinAntoniee/Cinema.io-Personalized-Movie-Recommendation)), identifying key areas for improvement in the original concept and elevating it with modern vector search, fine-tuned transformer inference, and a complete full-stack architecture.
-- **Machine Learning & NLP Engineering**
-  - Fine-tuned a multi-class DistilBERT classifier on curated emotional dialogue and the GoEmotions corpus, outputting calibrated probability distributions across 6 canonical emotions.
-  - Implemented semantic retrieval using Sentence-BERT (`all-MiniLM-L6-v2`) and ChromaDB vector indexing to generate dense 384-dimensional embeddings over the TMDB movie catalog.
-  - Formulated the dynamic alpha-weighted Hybrid Scoring Engine balancing semantic plot alignment with emotional resonance.
-- **Full-Stack Backend Development**
-  - Developed high-performance asynchronous REST endpoints using **FastAPI** and **Pydantic v2** validation.
-  - Implemented secure JWT-based bearer authentication with password hashing via Passlib.
-  - Designed SQLite database schemas via **SQLAlchemy ORM** to manage user accounts, chronological Emotion History logs, and personal Watchlists.
-- **Frontend Architecture & UI/UX**
-  - Built an interactive, single-page application using **React 18** and **Vite** featuring Lucide icons and customized CSS typography (`Bodoni Moda`, `Inter`).
-  - Designed intuitive real-time controls including dynamic mood-vs-plot focus sliders, emotion probability gauges, and mobile-first responsive viewports.
-- **DevOps & Production Packaging**
-  - Structured a multi-stage **Docker** build containerizing the Vite production bundle and FastAPI server for lightweight deployment.
-  - Configured health-check endpoints, automated environment variable loaders (`.env`), and Vercel routing policies.
+- **Dual-Model Semantic & Emotional Synthesis**
+  - Standard dense sentence embeddings (such as Sentence-BERT) excel at capturing thematic topics and plot synopses, but struggle to isolate subtle emotional nuance (e.g., distinguishing bittersweet nostalgia from grief).
+  - Fine-tuning a dedicated multi-class DistilBERT classifier provided explicit 6-emotion probability distributions, but pure emotion matching ignored narrative context. Formulating the $\alpha$-weighted hybrid equation proved that dynamically fusing both dimensions yields significantly higher recommendation resonance than relying on either model in isolation.
+
+- **Mitigating Cold Starts & Memory Bounds in Transformer Serving**
+  - Serving PyTorch transformer weights alongside ChromaDB on lightweight or single-instance hosting presents strict CPU and RAM constraints.
+  - Mitigated memory bloat and runtime latency by enforcing single-threaded execution (`torch.set_num_threads(1)`), lazy-loading tokenizers, and precomputing static 384-dimensional film embeddings so server compute is exclusively dedicated to query-time prompt encoding.
+
+- **State Persistence & Clean Domain Boundaries in Full-Stack Architecture**
+  - Designed the data flow to decouple unauthenticated Guests (ephemeral, zero-friction exploration) from authenticated Users (persistent Emotion History timelines and personal Watchlists).
+  - Transitioning from an earlier proof-of-concept ([`Cinema.io`](https://github.com/EdwinAntoniee/Cinema.io-Personalized-Movie-Recommendation)) reinforced the importance of strictly separating backend API schemas (Pydantic v2) from database persistence models (SQLAlchemy) to ensure atomic state updates and seamless lifecycle management (`plan_to_watch` $\leftrightarrow$ `watched`).
 
 ---
 
