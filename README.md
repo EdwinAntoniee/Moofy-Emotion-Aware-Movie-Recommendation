@@ -19,6 +19,10 @@
   <a href="https://img.shields.io/badge/Status-Completed-success?style=flat"><img src="https://img.shields.io/badge/Status-Completed-success?style=flat" alt="Status" /></a>
 </p>
 
+---
+🌐 **Live Demo** — [moofy-five.vercel.app](https://moofy-five.vercel.app)
+---
+
 <p align="center">
   <a href="#overview">Overview</a> •
   <a href="#key-features">Features</a> •
@@ -174,8 +178,8 @@ Moofy/
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/EdwinAntoniee/Moofy.git
-cd Moofy
+git clone https://github.com/EdwinAntoniee/Moofy-Emotion-Aware-Movie-Recommendation.git
+cd Moofy-Emotion-Aware-Movie-Recommendation
 ```
 
 ### 2. Backend Setup
