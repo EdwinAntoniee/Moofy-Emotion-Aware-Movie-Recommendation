@@ -9,10 +9,23 @@
 </p>
 
 <p align="center">
+  <a href="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white" alt="Python" /></a>
+  <a href="https://img.shields.io/badge/Frontend-React%2018%20%2F%20Vite-61DAFB?style=flat&logo=react&logoColor=white"><img src="https://img.shields.io/badge/Frontend-React%2018%20%2F%20Vite-61DAFB?style=flat&logo=react&logoColor=white" alt="Frontend" /></a>
+  <a href="https://img.shields.io/badge/Backend-FastAPI-009688?style=flat&logo=fastapi&logoColor=white"><img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=flat&logo=fastapi&logoColor=white" alt="Backend" /></a>
+  <a href="https://img.shields.io/badge/AI%2FML-DistilBERT%20%2B%20SBERT-EE4C2C?style=flat&logo=huggingface&logoColor=white"><img src="https://img.shields.io/badge/AI%2FML-DistilBERT%20%2B%20SBERT-EE4C2C?style=flat&logo=huggingface&logoColor=white" alt="AI/ML" /></a>
+  <a href="https://img.shields.io/badge/Vector%20Store-ChromaDB-blue?style=flat"><img src="https://img.shields.io/badge/Vector%20Store-ChromaDB-blue?style=flat" alt="ChromaDB" /></a>
+  <a href="https://img.shields.io/badge/Container-Docker-2496ED?style=flat&logo=docker&logoColor=white"><img src="https://img.shields.io/badge/Container-Docker-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker" /></a>
+  <a href="https://img.shields.io/badge/Type-Personal%20Project-2563EB?style=flat"><img src="https://img.shields.io/badge/Type-Personal%20Project-2563EB?style=flat" alt="Type" /></a>
+  <a href="https://img.shields.io/badge/Status-Completed-success?style=flat"><img src="https://img.shields.io/badge/Status-Completed-success?style=flat" alt="Status" /></a>
+</p>
+
+<p align="center">
   <a href="#overview">Overview</a> •
   <a href="#key-features">Features</a> •
   <a href="#machine-learning-architecture">ML Architecture</a> •
+  <a href="#my-roles--contributions">Contributions</a> •
   <a href="#tech-stack">Tech Stack</a> •
+  <a href="#folder-structure">Folder Structure</a> •
   <a href="#quickstart--installation">Quickstart</a> •
   <a href="#deployment">Deployment</a> •
   <a href="#api-reference">API Docs</a>
@@ -44,28 +57,40 @@ The platform blends:
 
 ## 🧠 Machine Learning Architecture
 
-```
-User Sentiment Prompt ("Feeling melancholic after a long rainy day...")
-                    │
-       ┌────────────┴────────────┐
-       ▼                         ▼
-[DistilBERT Classifier]   [Sentence-BERT (MiniLM)]
-       │                         │
-6-Emotion Probability     768-dim Embedding Vector
-Distribution Breakdown           │
-       │                  [ChromaDB Vector Store]
-       │                  Semantic Cosine Retrieval
-       │                         │
-       └────────────┬────────────┘
-                    ▼
-     [Adaptive Hybrid Scoring Engine]
-     Score = α · SemanticSim + (1 - α) · EmotionScore
-                    │
-     [Quality & Adult Safety Gate]
-     Rating ≥ 5.8, Votes ≥ 15, Adult Regex Filter
-                    │
-                    ▼
-     Top-K Curated Film Recommendations
+```mermaid
+flowchart TD
+    subgraph PHASE1["1. User Sentiment Input"]
+        direction TB
+        PROMPT["Emotion Prompt\n'I had an exhausting week and need something comforting and warm'"]
+    end
+
+    subgraph PHASE2["2. Dual NLP & Semantic Retrieval"]
+        direction TB
+        PROMPT --> BERT["Fine-tuned DistilBERT Classifier\n(models/distilbert_prod)"]
+        PROMPT --> SBERT["Sentence-BERT (all-MiniLM-L6-v2)\nDense 384-dim Embedding"]
+        BERT --> EVEC["Emotion Vector\n6-Class Probability Distribution\n(Joy, Sadness, Anger, Fear, Love, Surprise)"]
+        SBERT --> RETRIEVE["ChromaDB Vector Store\nCosine Metric Retrieval"]
+        DB[("TMDB Movie Corpus\nEmbeddings & Emotion Tags")] -.-> RETRIEVE
+    end
+
+    subgraph PHASE3["3. Adaptive Hybrid Scoring Engine"]
+        direction TB
+        EVEC --> HYBRID["Score = α · SemanticSim + (1 - α) · EmotionScore\n(Dynamic α Slider: 0.0 Mood ↔ 1.0 Plot)"]
+        RETRIEVE --> HYBRID
+        HYBRID --> GATE{"Content & Quality Gate\nRating ≥ 5.8 | Votes ≥ 15\nAdult Regex Filter"}
+        GATE -->|Pass| TOPK["Top-K Curated Film Recommendations\nWith Calibrated Resonance Scores"]
+    end
+
+    subgraph PHASE4["4. User Flow & Experience"]
+        direction TB
+        TOPK --> AUTH{"Authentication State"}
+        AUTH -->|Guest Mode| GUEST["Instant Film Exploration\n(Zero-Friction, Ephemeral Search)"]
+        AUTH -->|Authenticated User| USER_DASH["Personalized User Dashboard\n• Search History Timeline\n• Watchlist & Queue Manager"]
+    end
+
+    PHASE1 ==> PHASE2
+    PHASE2 ==> PHASE3
+    PHASE3 ==> PHASE4
 ```
 
 ### Hybrid Score Formulation
@@ -73,6 +98,25 @@ $$\text{Score} = \alpha \cdot \text{SemanticSim}(\vec{u}, \vec{m}) + (1 - \alpha
 * **$\alpha = 0.0$**: Pure Emotional Resonance (matches movies that strictly mirror the detected emotional state).
 * **$\alpha = 0.5$**: Balanced Synthesis (50% Emotion / 50% Plot semantics).
 * **$\alpha = 1.0$**: Pure Semantic Search (matches movies strictly by plot synopsis alignment).
+
+---
+
+## 👨‍💻 My Roles & Contributions
+
+- **Machine Learning & NLP Engineering**
+  - Fine-tuned a multi-class DistilBERT classifier on curated emotional dialogue and the GoEmotions corpus, outputting calibrated probability distributions across 6 canonical emotions.
+  - Implemented semantic retrieval using Sentence-BERT (`all-MiniLM-L6-v2`) and ChromaDB vector indexing to generate dense 384-dimensional embeddings over the TMDB movie catalog.
+  - Formulated the dynamic alpha-weighted Hybrid Scoring Engine balancing semantic plot alignment with emotional resonance.
+- **Full-Stack Backend Development**
+  - Developed high-performance asynchronous REST endpoints using **FastAPI** and **Pydantic v2** validation.
+  - Implemented secure JWT-based bearer authentication with password hashing via Passlib.
+  - Designed SQLite database schemas via **SQLAlchemy ORM** to manage user accounts, chronological Emotion History logs, and personal Watchlists.
+- **Frontend Architecture & UI/UX**
+  - Built an interactive, single-page application using **React 18** and **Vite** featuring Lucide icons and customized CSS typography (`Bodoni Moda`, `Inter`).
+  - Designed intuitive real-time controls including dynamic mood-vs-plot focus sliders, emotion probability gauges, and mobile-first responsive viewports.
+- **DevOps & Production Packaging**
+  - Structured a multi-stage **Docker** build containerizing the Vite production bundle and FastAPI server for lightweight deployment.
+  - Configured health-check endpoints, automated environment variable loaders (`.env`), and Vercel routing policies.
 
 ---
 
@@ -85,6 +129,39 @@ $$\text{Score} = \alpha \cdot \text{SemanticSim}(\vec{u}, \vec{m}) + (1 - \alpha
 | **Frontend UI** | **React 18**, **Vite**, **Lucide React**, **CSS3 Tokens** (`Bodoni Moda`, `Inter`, `JetBrains Mono`) |
 | **Security & Auth** | **JWT** (JSON Web Tokens), **Passlib** (PBKDF2/Bcrypt) |
 | **DevOps & Containers** | **Docker** (Multi-Stage Build), **Docker Compose**, **Vercel** (`vercel.json`) |
+
+---
+
+## 📂 Folder Structure
+
+```
+Moofy/
+├── assets/                       # Visual branding assets and logos
+│   └── branding/                 # High-resolution logos and icons
+├── backend/                      # FastAPI backend application
+│   ├── app/
+│   │   ├── api/                  # REST API route handlers (auth, recommend, history, watchlist)
+│   │   ├── core/                 # App configuration, security (JWT), and constants
+│   │   ├── db/                   # Database session and SQLite setup
+│   │   ├── models/               # SQLAlchemy database ORM entities
+│   │   ├── schemas/              # Pydantic v2 request/response validation schemas
+│   │   └── services/             # Recommendation engine, emotion classifier & vector store
+│   └── tests/                    # Backend automated unit and integration tests
+├── chroma_db/                    # ChromaDB vector index database files
+├── data/                         # TMDB movie catalog and emotion-annotated datasets
+├── frontend/                     # React 18 + Vite frontend application
+│   ├── src/                      # UI components, pages, context, and custom hooks
+│   └── public/                   # Static web assets and icons
+├── models/                       # Serialized machine learning models
+│   └── distilbert_prod/          # Fine-tuned DistilBERT emotion classifier weights & tokenizer
+├── 1_research_and_experiments/   # Model exploration, benchmarking, and training notebooks
+├── docker-compose.yml            # Container orchestration specification
+├── Dockerfile                    # Multi-stage production container build definition
+├── requirements.txt              # Production Python package dependencies
+├── run_app.py                    # Unified application launch utility
+├── vercel.json                   # Frontend deployment routing configuration
+└── README.md                     # Comprehensive project documentation
+```
 
 ---
 
