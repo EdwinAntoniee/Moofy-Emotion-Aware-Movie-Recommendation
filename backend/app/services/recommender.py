@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer
 from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
 import chromadb
 
-from app.core.config import settings, MODELS_DIR, CHROMA_DB_DIR, ENRICHED_METADATA_FILE, MOVIES_CSV_FILE
+from app.core.config import settings, MODELS_DIR, CHROMA_DB_DIR, DATA_DIR, ENRICHED_METADATA_FILE, MOVIES_CSV_FILE
 from app.schemas.recommend import RecommendResponse, MovieCard, EmotionScore
 
 # Comprehensive adult, erotic, NSFW and explicit content keywords to strictly filter out
@@ -64,6 +64,17 @@ class RecommenderService:
         # 2. Load Sentence-BERT on CPU
         print("[RecommenderService] Loading SentenceTransformer all-MiniLM-L6-v2")
         self.sbert_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        
+        # Precompute emotion anchor embeddings once at startup
+        self.emotion_anchors = [
+            "anger rage fury aggressive violent mad revenge wrath hate hostility",
+            "fear terror horror scary suspense anxiety dread panic spooky thriller danger nightmare",
+            "joy happiness cheerful uplifting hilarious fun comedy adventure exciting celebration",
+            "love romance romantic affection passion sweet heart couple intimacy crush tender",
+            "sadness crying grief heartbreak depression sorrow tearful lonely mourn tragic despair",
+            "surprise shocked unexpected plot twist mystery mind blowing astonishing revelation discovery"
+        ]
+        self.anchor_embeddings = self.sbert_model.encode(self.emotion_anchors)
         gc.collect()
 
         # 3. Connect to ChromaDB
@@ -71,7 +82,20 @@ class RecommenderService:
         self.chroma_client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
         self.collection = self.chroma_client.get_or_create_collection(name="movie_synopses")
         
-        # 4. Load Enriched Metadata
+        # 4. Load Precomputed Vector Embeddings & Enriched Metadata
+        self.movie_embeddings = None
+        self.movie_ids = []
+        embeddings_file = DATA_DIR / "movie_embeddings.npy"
+        ids_file = DATA_DIR / "movie_ids.json"
+        if embeddings_file.exists() and ids_file.exists():
+            try:
+                self.movie_embeddings = np.load(embeddings_file)
+                with open(ids_file, "r", encoding="utf-8") as f:
+                    self.movie_ids = [str(mid) for mid in json.load(f)]
+                print(f"[RecommenderService] Loaded {len(self.movie_ids)} precomputed vector embeddings.")
+            except Exception as e:
+                print(f"[Warning] Failed to load precomputed embeddings: {e}")
+
         self.enriched_metadata: Dict[str, dict] = {}
         if ENRICHED_METADATA_FILE.exists():
             with open(ENRICHED_METADATA_FILE, "r", encoding="utf-8") as f:
@@ -94,48 +118,39 @@ class RecommenderService:
                     "emotion_label": str(row.get("emotion_label", "Joy"))
                 }
 
-        # 5. Auto-seed ChromaDB if collection is empty (e.g. on fresh deployment)
+        # 5. Auto-seed ChromaDB if collection is empty using precomputed embeddings
         if self.collection.count() == 0:
-            print("[RecommenderService] ChromaDB collection is empty. Auto-indexing TMDB movies...")
+            print("[RecommenderService] ChromaDB collection is empty. Auto-seeding from precomputed vectors...")
             self._seed_chroma_collection()
 
         print(f"[RecommenderService] ChromaDB collection ready. Item count: {self.collection.count()}")
         gc.collect()
 
     def _seed_chroma_collection(self):
-        """Auto-embed synopses into ChromaDB if empty."""
+        """Auto-seed ChromaDB without expensive runtime encoding."""
         try:
-            ids = []
-            documents = []
-            metadatas = []
-
-            for m_id, meta in self.enriched_metadata.items():
-                overview = meta.get("overview", "").strip()
-                if not overview:
-                    continue
-                ids.append(m_id)
-                documents.append(overview)
-                metadatas.append({
-                    "title": meta.get("title", ""),
-                    "emotion_label": meta.get("emotion_label", "Joy"),
-                    "vote_average": float(meta.get("vote_average", 7.0))
-                })
-
-            if documents:
-                print(f"[RecommenderService] Computing SBERT embeddings for {len(documents)} movies...")
-                embeddings = self.sbert_model.encode(documents, show_progress_bar=False, batch_size=32)
-                
-                # Insert in batches of 200
+            if self.movie_embeddings is not None and len(self.movie_ids) > 0:
+                print(f"[RecommenderService] Seeding ChromaDB from precomputed {len(self.movie_ids)} embeddings...")
                 batch_size = 200
-                for i in range(0, len(ids), batch_size):
+                for i in range(0, len(self.movie_ids), batch_size):
+                    batch_ids = self.movie_ids[i:i+batch_size]
+                    batch_embs = self.movie_embeddings[i:i+batch_size].tolist()
+                    batch_docs = [self.enriched_metadata.get(mid, {}).get("overview", "") for mid in batch_ids]
+                    batch_metas = [{
+                        "title": self.enriched_metadata.get(mid, {}).get("title", ""),
+                        "emotion_label": self.enriched_metadata.get(mid, {}).get("emotion_label", "Joy"),
+                        "vote_average": float(self.enriched_metadata.get(mid, {}).get("vote_average", 7.0))
+                    } for mid in batch_ids]
+
                     self.collection.add(
-                        ids=ids[i:i+batch_size],
-                        embeddings=embeddings[i:i+batch_size].tolist(),
-                        documents=documents[i:i+batch_size],
-                        metadatas=metadatas[i:i+batch_size]
+                        ids=batch_ids,
+                        embeddings=batch_embs,
+                        documents=batch_docs,
+                        metadatas=batch_metas
                     )
-                print(f"[RecommenderService] Successfully indexed {len(ids)} movies into ChromaDB.")
+                print(f"[RecommenderService] Successfully indexed {len(self.movie_ids)} movies into ChromaDB.")
                 gc.collect()
+                return
         except Exception as e:
             print(f"[Error] Failed to auto-seed ChromaDB: {e}")
 
@@ -160,45 +175,30 @@ class RecommenderService:
 
     def predict_emotion(self, text: str) -> Tuple[str, Dict[str, float], List[EmotionScore]]:
         """Predict emotion probabilities for an emotion prompt with robust multi-layer fallback."""
-        try:
-            inputs = self.tokenizer(
-                text,
-                return_tensors="pt",
-                truncation=True,
-                padding=True,
-                max_length=128
-            ).to(self.device)
+        if self.distilbert_model is not None and self.tokenizer is not None:
+            try:
+                inputs = self.tokenizer(
+                    text,
+                    return_tensors="pt",
+                    truncation=True,
+                    padding=True,
+                    max_length=128
+                ).to(self.device)
 
-            with torch.inference_mode():
-                outputs = self.distilbert_model(**inputs)
-                probs = torch.softmax(outputs.logits, dim=1).cpu().numpy()[0]
+                with torch.inference_mode():
+                    outputs = self.distilbert_model(**inputs)
+                    probs = torch.softmax(outputs.logits, dim=1).cpu().numpy()[0]
 
-            emotion_dict = {
-                self.emotion_classes[i]: float(probs[i])
-                for i in range(len(self.emotion_classes))
-            }
-            primary_emotion = self.emotion_classes[int(np.argmax(probs))]
-        except Exception as e:
-            print(f"[Warning] DistilBERT inference failed ({e}). Using semantic emotion anchor mapping.")
-            anchors = [
-                "anger rage fury aggressive violent mad revenge wrath hate hostility",
-                "fear terror horror scary suspense anxiety dread panic spooky thriller danger nightmare",
-                "joy happiness cheerful uplifting hilarious fun comedy adventure exciting celebration",
-                "love romance romantic affection passion sweet heart couple intimacy crush tender",
-                "sadness crying grief heartbreak depression sorrow tearful lonely mourn tragic despair",
-                "surprise shocked unexpected plot twist mystery mind blowing astonishing revelation discovery"
-            ]
-            anchor_embs = self.sbert_model.encode(anchors)
-            query_emb = self.sbert_model.encode([text])
-            from sklearn.metrics.pairwise import cosine_similarity
-            sims = cosine_similarity(query_emb, anchor_embs)[0]
-            exp_sims = np.exp(sims * 5)
-            probs = exp_sims / np.sum(exp_sims)
-            emotion_dict = {
-                self.emotion_classes[i]: float(probs[i])
-                for i in range(len(self.emotion_classes))
-            }
-            primary_emotion = self.emotion_classes[int(np.argmax(probs))]
+                emotion_dict = {
+                    self.emotion_classes[i]: float(probs[i])
+                    for i in range(len(self.emotion_classes))
+                }
+                primary_emotion = self.emotion_classes[int(np.argmax(probs))]
+            except Exception as e:
+                print(f"[Warning] DistilBERT inference failed ({e}). Using semantic emotion anchor mapping.")
+                primary_emotion, emotion_dict = self._semantic_emotion_predict(text)
+        else:
+            primary_emotion, emotion_dict = self._semantic_emotion_predict(text)
 
         breakdown = [
             EmotionScore(
@@ -210,6 +210,21 @@ class RecommenderService:
         ]
 
         return primary_emotion, emotion_dict, breakdown
+
+    def _semantic_emotion_predict(self, text: str) -> Tuple[str, Dict[str, float]]:
+        """Instant semantic cosine similarity against precomputed emotion anchors."""
+        query_emb = self.sbert_model.encode(text)
+        norm_q = np.linalg.norm(query_emb)
+        norm_a = np.linalg.norm(self.anchor_embeddings, axis=1)
+        sims = np.dot(self.anchor_embeddings, query_emb) / (norm_a * norm_q + 1e-9)
+        exp_sims = np.exp(sims * 5)
+        probs = exp_sims / np.sum(exp_sims)
+        emotion_dict = {
+            self.emotion_classes[i]: float(probs[i])
+            for i in range(len(self.emotion_classes))
+        }
+        primary_emotion = self.emotion_classes[int(np.argmax(probs))]
+        return primary_emotion, emotion_dict
 
     def recommend(
         self,
@@ -223,12 +238,25 @@ class RecommenderService:
         primary_emotion, emotion_dict, breakdown = self.predict_emotion(prompt)
 
         # 2. Semantic Search with ChromaDB
-        prompt_embedding = self.sbert_model.encode(prompt).tolist()
+        # 2. Semantic Search (Ultra-fast precomputed matrix, fallback to ChromaDB)
+        prompt_emb_np = self.sbert_model.encode(prompt)
+        prompt_embedding = prompt_emb_np.tolist()
         
         candidate_ids = []
         distances = []
 
-        if self.collection.count() > 0:
+        if self.movie_embeddings is not None and len(self.movie_ids) > 0:
+            try:
+                norm_q = np.linalg.norm(prompt_emb_np)
+                norm_m = np.linalg.norm(self.movie_embeddings, axis=1)
+                sims = np.dot(self.movie_embeddings, prompt_emb_np) / (norm_m * norm_q + 1e-9)
+                top_idx = np.argsort(sims)[::-1][:60]
+                candidate_ids = [self.movie_ids[i] for i in top_idx]
+                distances = [float(max(0.0, 1.0 - sims[i])) for i in top_idx]
+            except Exception as e:
+                print(f"[Warning] Precomputed vector search failed: {e}")
+
+        if not candidate_ids and self.collection.count() > 0:
             try:
                 n_res = min(60, self.collection.count())
                 query_res = self.collection.query(
@@ -241,7 +269,7 @@ class RecommenderService:
             except Exception as e:
                 print(f"[Warning] ChromaDB query failed: {e}")
 
-        # Fallback if ChromaDB empty or failed
+        # Fallback if both empty or failed
         if not candidate_ids and self.enriched_metadata:
             candidate_ids = list(self.enriched_metadata.keys())[:60]
             distances = [1.0] * len(candidate_ids)

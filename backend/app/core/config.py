@@ -14,7 +14,7 @@ MOVIES_CSV_FILE = DATA_DIR / "tmdb_movies_with_emotions.csv"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Moofy"
-    VERSION: str = "1.0.2"
+    VERSION: str = "1.0.3"
     API_V1_STR: str = "/api"
     SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "moofy-super-secret-cinema-jwt-key-2026")
     ALGORITHM: str = "HS256"
