@@ -1,10 +1,17 @@
 import os
+import sys
 from pathlib import Path
+from contextlib import asynccontextmanager
+
+# Guarantee 'backend' directory is in sys.path regardless of execution CWD
+backend_dir = Path(__file__).resolve().parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from contextlib import asynccontextmanager
 import uvicorn
 
 from app.core.config import settings, BASE_DIR
@@ -69,4 +76,4 @@ if frontend_dist.exists():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 7860))
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run(app, host="0.0.0.0", port=port)
